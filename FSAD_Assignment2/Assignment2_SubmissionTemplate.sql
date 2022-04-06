@@ -48,6 +48,8 @@ CREATE DATABASE SmokedTrout
 * 
 ************************************************************ */
 
+--Initially set up including all tables and their attributes:
+
 -- 1) Create a new ENUM type called materialState for storing the raw material state
 CREATE TYPE materialState AS ENUM ('Solid', 'Liquid', 'Gas', 'Plasma');
 
@@ -65,26 +67,85 @@ CREATE TABLE TradingRoute (
 );
 
 -- 4) Create the table Planet with the corresponding attributes.
+CREATE TABLE Planet (
+	PlanetID SERIAL NOT NULL,
+	StarSystem varchar(30),
+	PlanetName varchar(30),
+	Population integer,
+	PRIMARY KEY (PlanetID)
+);
 
 -- 5) Create the table SpaceStation with the corresponding attributes.
+CREATE TABLE SpaceStation (
+	StationID SERIAL NOT NULL,
+	PlanetID SERIAL NOT NULL,
+	StationName varchar(40),
+	Longitude varchar(20),
+	Latitude varchar(20),
+	PRIMARY KEY (StationID)
+);
 
 -- 6) Create the parent table Product with the corresponding attributes.
-
+CREATE TABLE Product (
+	ProductID SERIAL NOT NULL,
+	ProductName varchar(30),
+	VolumePerTon real,
+	ValuePerTon real,
+	PRIMARY KEY (ProductID)
+);
 -- 7) Create the child table RawMaterial with the corresponding attributes.
+CREATE TABLE RawMaterial (
+	FundamentalOrComposite varchar(3),
+	State varchar(6)
+) INHERITS (Product);
 
 -- 8) Create the child table ManufacturedGood. 
+CREATE TABLE ManufacturedGood (
+) INHERITS (Product);
 
 -- 9) Create the table MadeOf with the corresponding attributes.
+CREATE TABLE MadeOf (
+	ManufacturedGoodID SERIAL NOT NULL,
+	ProductID SERIAL NOT NULL
+);
 
 -- 10) Create the table Batch with the corresponding attributes.
+CREATE TABLE Batch (
+	BatchID SERIAL NOT NULL,
+	ProductID SERIAL NOT NULL REFERENCES Product(ProductID),
+	ExtractionOrManufacturingDate date,
+	OriginalFrom SERIAL NOT NULL REFERENCES Planet(PlanetID),
+	PRIMARY KEY (BatchID)
+);
 
 -- 11) Create the table Sells with the corresponding attributes.
+CREATE TABLE Sells (
+	BatchID SERIAL NOT NULL REFERENCES Batch(BatchID),
+	StationID SERIAL NOT NULL REFERENCES SpaceStation(StationID)
+);
 
 -- 12)  Create the table Buys with the corresponding attributes.
+--Needs testing whether SERIAL or integer is better
+CREATE TABLE Buys (
+	BatchID integer NOT NULL REFERENCES Batch(BatchID),
+	StationID integer NOT NULL REFERENCES SpaceStation(StationID)
+);
 
 -- 13)  Create the table CallsAt with the corresponding attributes.
+CREATE TABLE CallsAt (
+	MonitoringKey integer NOT NULL REFERENCES TradingRoute(MonitoringKey),
+	StationID integer NOT NULL REFERENCES SpaceStation(StationID),
+	VisitOrder integer NOT NULL
+);
 
 -- 14)  Create the table Distance with the corresponding attributes.
+CREATE TABLE Distance (
+	PlanetOrigin integer NOT NULL REFERENCES Planet(PlanetID),
+	PlanetDestination integer NOT NULL REFERENCES Planet(PlanetID),
+	Distance real
+);
+
+--Creating all Foreign Key Relationships:
 
 
 /* *********************************************************
