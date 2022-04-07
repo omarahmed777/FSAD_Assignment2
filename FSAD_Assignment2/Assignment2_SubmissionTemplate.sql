@@ -78,7 +78,7 @@ CREATE TABLE Planet (
 -- 5) Create the table SpaceStation with the corresponding attributes.
 CREATE TABLE SpaceStation (
 	StationID SERIAL NOT NULL,
-	PlanetID SERIAL NOT NULL,
+	PlanetID integer REFERENCES Planet(PlanetID),
 	StationName varchar(40),
 	Longitude varchar(20),
 	Latitude varchar(20),
@@ -106,46 +106,44 @@ CREATE TABLE ManufacturedGood (
 -- 9) Create the table MadeOf with the corresponding attributes.
 CREATE TABLE MadeOf (
 	ManufacturedGoodID SERIAL NOT NULL,
-	ProductID SERIAL NOT NULL
+	ProductID integer
 );
 
 -- 10) Create the table Batch with the corresponding attributes.
 CREATE TABLE Batch (
 	BatchID SERIAL NOT NULL,
-	ProductID SERIAL NOT NULL REFERENCES Product(ProductID),
+	ProductID integer REFERENCES Product(ProductID),
 	ExtractionOrManufacturingDate date,
-	OriginalFrom SERIAL NOT NULL REFERENCES Planet(PlanetID),
+	OriginalFrom integer REFERENCES Planet(PlanetID),
 	PRIMARY KEY (BatchID)
 );
 
 -- 11) Create the table Sells with the corresponding attributes.
 CREATE TABLE Sells (
-	BatchID SERIAL NOT NULL REFERENCES Batch(BatchID),
-	StationID SERIAL NOT NULL REFERENCES SpaceStation(StationID)
+	BatchID integer REFERENCES Batch(BatchID),
+	StationID integer REFERENCES SpaceStation(StationID)
 );
 
 -- 12)  Create the table Buys with the corresponding attributes.
 --Needs testing whether SERIAL or integer is better
 CREATE TABLE Buys (
-	BatchID integer NOT NULL REFERENCES Batch(BatchID),
-	StationID integer NOT NULL REFERENCES SpaceStation(StationID)
+	BatchID integer REFERENCES Batch(BatchID),
+	StationID integer REFERENCES SpaceStation(StationID)
 );
 
 -- 13)  Create the table CallsAt with the corresponding attributes.
 CREATE TABLE CallsAt (
-	MonitoringKey integer NOT NULL REFERENCES TradingRoute(MonitoringKey),
-	StationID integer NOT NULL REFERENCES SpaceStation(StationID),
-	VisitOrder integer NOT NULL
+	MonitoringKey integer REFERENCES TradingRoute(MonitoringKey),
+	StationID integer REFERENCES SpaceStation(StationID),
+	VisitOrder integer
 );
 
 -- 14)  Create the table Distance with the corresponding attributes.
 CREATE TABLE Distance (
-	PlanetOrigin integer NOT NULL REFERENCES Planet(PlanetID),
-	PlanetDestination integer NOT NULL REFERENCES Planet(PlanetID),
-	Distance real
+	PlanetOrigin integer REFERENCES Planet(PlanetID),
+	PlanetDestination integer REFERENCES Planet(PlanetID),
+	AvgDistance real
 );
-
---Creating all Foreign Key Relationships:
 
 
 /* *********************************************************
@@ -170,30 +168,177 @@ CREATE TABLE Distance (
 
 -- 2) Populate the table TradingRoute with the data in the file TradeRoutes.csv.
 
+--Creating Dummy table--
+CREATE TABLE TradeDummy (
+	MonitoringKey SERIAL,
+	FleetSize integer,
+	OperatingCompany varchar(40),
+	LastYearRevenue real NOT NULL
+);
+
+--copying csv file contents into dummy table--
+\copy TradeDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\TradeRoutes.csv' WITH (FORMAT CSV, HEADER);
+
+--inserting csv file contents into TradingRoute table--
+INSERT INTO TradingRoute (MonitoringKey, FleetSize, OperatingCompany, LastYearRevenue)
+	SELECT MonitoringKey, FleetSize, OperatingCompany, LastYearRevenue FROM TradeDummy;
+
+--Dropping Dummy table, repeat these steps in this order for all other populating tasks--
+DROP TABLE TradeDummy;
+
 -- 3) Populate the table Planet with the data in the file Planets.csv.
 
+CREATE TABLE PlanetDummy (
+	PlanetID SERIAL,
+	StarSystem varchar(30),
+	Planet varchar(30),
+	Population_inMillions_ integer
+);
+
+\copy PlanetDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Planets.csv' WITH (FORMAT CSV, HEADER);
+
+INSERT INTO Planet (PlanetID, StarSystem, PlanetName, Population)
+SELECT PlanetID, StarSystem, Planet, Population_inMillions_ FROM PlanetDummy;
+
+DROP TABLE PlanetDummy;
 -- 4) Populate the table SpaceStation with the data in the file SpaceStations.csv.
+
+CREATE TABLE StationDummy (
+	StationID SERIAL,
+	PlanetID integer,
+	SpaceStations varchar(30),
+	Longitude varchar(20),
+	Latitude varchar(20)
+);
+
+\copy StationDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\SpaceStations.csv' WITH (FORMAT CSV, HEADER);
+
+INSERT INTO SpaceStation (StationID, PlanetId, StationName, Longitude, Latitude)
+	SELECT StationID, PlanetID, SpaceStations, Longitude, Latitude FROM StationDummy;
+
+DROP TABLE StationDummy;
 
 -- 5) Populate the tables RawMaterial and Product with the data in the file Products_Raw.csv. 
 
+CREATE TABLE RawDummy (
+	ProductID SERIAL,
+	Product varchar(30),
+	Composite varchar(3),
+	VolumePerTon real,
+	ValuePerTon real,
+	State varchar(6)
+);
+
+\copy RawDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Products_Raw.csv' WITH (FORMAT CSV, HEADER);
+
+INSERT INTO RawMaterial (ProductID, ProductName, VolumePerTon, ValuePerTon, FundamentalOrComposite, State)
+	SELECT ProductID, Product, VolumePerTon, ValuePerTon, Composite, State FROM RawDummy;
+
+DROP TABLE RawDummy;
+
 -- 6) Populate the tables ManufacturedGood and Product with the data in the file  Products_Manufactured.csv.
+
+CREATE TABLE ManufacturedDummy (
+	ProductID SERIAL,
+	Product varchar(30),
+	VolumePerTon real,
+	ValuePerTon real
+);
+
+\copy ManufacturedDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Products_Manufactured.csv' WITH (FORMAT CSV, HEADER);
+
+INSERT INTO ManufacturedGood (ProductID, ProductName, VolumePerTon, ValuePerTon)
+	SELECT ProductID, Product, VolumePerTon, ValuePerTon FROM ManufacturedDummy;
+
+DROP TABLE ManufacturedDummy;
 
 -- 7) Populate the table MadeOf with the data in the file MadeOf.csv.
 
+CREATE TABLE MadeOfDummy (
+	ManufacturedGoodID integer,
+	ProductID integer
+);
+
+\copy MadeOfDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\MadeOf.csv' WITH (FORMAT CSV, HEADER);
+
+INSERT INTO MadeOf (ManufacturedGoodID, ProductID)
+	SELECT ManufacturedGoodID, ProductID FROM MadeOfDummy;
+
+DROP TABLE MadeOfDummy;
+
 -- 8) Populate the table Batch with the data in the file Batches.csv.
 
+CREATE TABLE BatchDummy (
+	BatchID SERIAL,
+	ProductID integer,
+	ExtractionOrManufacturingDate date,
+	OriginalFrom integer
+);
+
+\copy BatchDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Batches.csv' WITH (FORMAT CSV, HEADER);
+
+ALTER TABLE Batch
+DROP CONSTRAINT batch_productid_fkey;
+
+INSERT INTO Batch (BatchID, ProductID, ExtractionOrManufacturingDate, OriginalFrom)
+	SELECT BatchID, ProductID, ExtractionOrManufacturingDate, OriginalFrom FROM BatchDummy;
+
+DROP TABLE BatchDummy;
 -- 9) Populate the table Sells with the data in the file Sells.csv.
 
+CREATE TABLE SellsDummy (
+	BatchID integer,
+	StationID integer
+);
+
+\copy SellsDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Sells.csv' WITH (FORMAT CSV, HEADER);
+
+INSERT INTO Sells (BatchID, StationID)
+	SELECT BatchID, StationID FROM SellsDummy;
+
+DROP TABLE SellsDummy;
 -- 10) Populate the table Buys with the data in the file Buys.csv.
 
+CREATE TABLE BuysDummy (
+	BatchID integer,
+	StationID integer
+);
+
+\copy BuysDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Buys.csv' WITH (FORMAT CSV, HEADER);
+
+INSERT INTO Buys (BatchID, StationID)
+	SELECT BatchID, StationID FROM BuysDummy;
+
+DROP TABLE BuysDummy;
 -- 11) Populate the table CallsAt with the data in the file CallsAt.csv.
+
+CREATE TABLE CallsAtDummy (
+	MonitoringKey integer,
+	StationID integer,
+	VisitOrder integer
+);
+
+\copy CallsAtDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\CallsAt.csv' WITH (FORMAT CSV, HEADER);
+
+INSERT INTO CallsAt (MonitoringKey, StationID, VisitOrder)
+	SELECT MonitoringKey, StationID, VisitOrder FROM CallsAtDummy;
+
+DROP TABLE CallsAtDummy;
 
 -- 12) Populate the table Distance with the data in the file PlanetDistances.csv.
 
+CREATE TABLE DistanceDummy (
+	PlanetOrigin integer,
+	PlanetDestination integer,
+	Distance real
+);
 
+\copy DistanceDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\PlanetDistances.csv' WITH (FORMAT CSV, HEADER);
 
+INSERT INTO Distance (PlanetOrigin, PlanetDestination, AvgDistance)
+	SELECT PlanetOrigin, PlanetDestination, Distance FROM DistanceDummy;
 
-
+DROP TABLE DistanceDummy;
 /* *********************************************************
 * Exercise 4. Query the database
 * 
