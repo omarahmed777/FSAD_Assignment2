@@ -31,7 +31,7 @@
 -- be convenient to change the working directory.
 \cd 'YOUR WORKING DIRECTORY HERE'
   -- In PostgreSQL, folders are identified with '/'
-
+\cd 'C:/Users/AnerdyArab/GitProjects/FSAD_Assignment2'
 
 -- 1) Create a database called SmokedTrout.
 CREATE DATABASE SmokedTrout
@@ -78,11 +78,15 @@ CREATE TABLE Planet (
 -- 5) Create the table SpaceStation with the corresponding attributes.
 CREATE TABLE SpaceStation (
 	StationID SERIAL NOT NULL,
-	PlanetID integer REFERENCES Planet(PlanetID),
+	PlanetID integer,
 	StationName varchar(40),
 	Longitude varchar(20),
 	Latitude varchar(20),
-	PRIMARY KEY (StationID)
+	PRIMARY KEY (StationID),
+	CONSTRAINT spacestation_fk_planetid
+		FOREIGN KEY (PlanetID)
+			REFERENCES Planet(PlanetID)
+			ON UPDATE CASCADE ON DELETE CASCADE NOT VALID
 );
 
 -- 6) Create the parent table Product with the corresponding attributes.
@@ -105,30 +109,48 @@ CREATE TABLE ManufacturedGood (
 
 -- 9) Create the table MadeOf with the corresponding attributes.
 CREATE TABLE MadeOf (
-	ManufacturedGoodID SERIAL NOT NULL,
+	ManufacturedGoodID integer,
 	ProductID integer
 );
 
 -- 10) Create the table Batch with the corresponding attributes.
 CREATE TABLE Batch (
 	BatchID SERIAL NOT NULL,
-	ProductID integer REFERENCES Product(ProductID),
+	ProductID integer,
 	ExtractionOrManufacturingDate date,
-	OriginalFrom integer REFERENCES Planet(PlanetID),
-	PRIMARY KEY (BatchID)
+	OriginalFrom integer,
+	PRIMARY KEY (BatchID),
+	CONSTRAINT batch_fk_productid
+		FOREIGN KEY (ProductID) REFERENCES Product(ProductID)
+		ON UPDATE CASCADE ON DELETE CASCADE NOT VALID,
+	CONSTRAINT batch_fk_originalfrom
+		FOREIGN KEY (OriginalFrom) REFERENCES Planet(PlanetID)
+		ON UPDATE CASCADE ON DELETE CASCADE NOT VALID
 );
 
 -- 11) Create the table Sells with the corresponding attributes.
 CREATE TABLE Sells (
-	BatchID integer REFERENCES Batch(BatchID),
-	StationID integer REFERENCES SpaceStation(StationID)
+	BatchID integer,
+	StationID integer,
+	CONSTRAINT sells_fk_batchid
+		FOREIGN KEY (BatchID) REFERENCES Batch(BatchID)
+		ON UPDATE CASCADE ON DELETE CASCADE NOT VALID,
+	CONSTRAINT sells_fk_stationid
+		FOREIGN KEY (StationID) REFERENCES SpaceStation(StationID)
+		ON UPDATE CASCADE ON DELETE CASCADE NOT VALID
 );
 
 -- 12)  Create the table Buys with the corresponding attributes.
 --Needs testing whether SERIAL or integer is better
 CREATE TABLE Buys (
-	BatchID integer REFERENCES Batch(BatchID),
-	StationID integer REFERENCES SpaceStation(StationID)
+	BatchID integer,
+	StationID integer,
+	CONSTRAINT buys_fk_batchid
+		FOREIGN KEY (BatchID) REFERENCES Batch(BatchID)
+		ON UPDATE CASCADE ON DELETE CASCADE NOT VALID,
+	CONSTRAINT buys_fk_stationid
+		FOREIGN KEY (StationID) REFERENCES SpaceStation(StationID)
+		ON UPDATE CASCADE ON DELETE CASCADE NOT VALID
 );
 
 -- 13)  Create the table CallsAt with the corresponding attributes.
@@ -177,7 +199,7 @@ CREATE TABLE TradeDummy (
 );
 
 --copying csv file contents into dummy table--
-\copy TradeDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\TradeRoutes.csv' WITH (FORMAT CSV, HEADER);
+\copy TradeDummy from './data/TradeRoutes.csv' WITH (FORMAT CSV ,HEADER);
 
 --inserting csv file contents into TradingRoute table--
 INSERT INTO TradingRoute (MonitoringKey, FleetSize, OperatingCompany, LastYearRevenue)
@@ -195,7 +217,7 @@ CREATE TABLE PlanetDummy (
 	Population_inMillions_ integer
 );
 
-\copy PlanetDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Planets.csv' WITH (FORMAT CSV, HEADER);
+\copy PlanetDummy FROM './data/Planets.csv' WITH (FORMAT CSV, HEADER);
 
 INSERT INTO Planet (PlanetID, StarSystem, PlanetName, Population)
 SELECT PlanetID, StarSystem, Planet, Population_inMillions_ FROM PlanetDummy;
@@ -211,9 +233,9 @@ CREATE TABLE StationDummy (
 	Latitude varchar(20)
 );
 
-\copy StationDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\SpaceStations.csv' WITH (FORMAT CSV, HEADER);
+\copy StationDummy from './data/SpaceStations.csv' WITH (FORMAT CSV, HEADER);
 
-INSERT INTO SpaceStation (StationID, PlanetId, StationName, Longitude, Latitude)
+INSERT INTO SpaceStation (StationID, PlanetID, StationName, Longitude, Latitude)
 	SELECT StationID, PlanetID, SpaceStations, Longitude, Latitude FROM StationDummy;
 
 DROP TABLE StationDummy;
@@ -229,7 +251,7 @@ CREATE TABLE RawDummy (
 	State varchar(6)
 );
 
-\copy RawDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Products_Raw.csv' WITH (FORMAT CSV, HEADER);
+\copy RawDummy from './data/Products_Raw.csv' WITH (FORMAT CSV, HEADER);
 
 INSERT INTO RawMaterial (ProductID, ProductName, VolumePerTon, ValuePerTon, FundamentalOrComposite, State)
 	SELECT ProductID, Product, VolumePerTon, ValuePerTon, Composite, State FROM RawDummy;
@@ -245,7 +267,7 @@ CREATE TABLE ManufacturedDummy (
 	ValuePerTon real
 );
 
-\copy ManufacturedDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Products_Manufactured.csv' WITH (FORMAT CSV, HEADER);
+\copy ManufacturedDummy FROM './data/Products_Manufactured.csv' WITH (FORMAT CSV, HEADER);
 
 INSERT INTO ManufacturedGood (ProductID, ProductName, VolumePerTon, ValuePerTon)
 	SELECT ProductID, Product, VolumePerTon, ValuePerTon FROM ManufacturedDummy;
@@ -259,7 +281,7 @@ CREATE TABLE MadeOfDummy (
 	ProductID integer
 );
 
-\copy MadeOfDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\MadeOf.csv' WITH (FORMAT CSV, HEADER);
+\copy ManufacturedDummy FROM './data/Products_Manufactured.csv' WITH (FORMAT CSV, HEADER);
 
 INSERT INTO MadeOf (ManufacturedGoodID, ProductID)
 	SELECT ManufacturedGoodID, ProductID FROM MadeOfDummy;
@@ -275,10 +297,10 @@ CREATE TABLE BatchDummy (
 	OriginalFrom integer
 );
 
-\copy BatchDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Batches.csv' WITH (FORMAT CSV, HEADER);
+\copy BatchDummy FROM './data/Batches.csv' WITH (FORMAT CSV, HEADER);
 
 ALTER TABLE Batch
-DROP CONSTRAINT batch_productid_fkey;
+DROP CONSTRAINT batch_fk_productid;
 
 INSERT INTO Batch (BatchID, ProductID, ExtractionOrManufacturingDate, OriginalFrom)
 	SELECT BatchID, ProductID, ExtractionOrManufacturingDate, OriginalFrom FROM BatchDummy;
@@ -291,7 +313,7 @@ CREATE TABLE SellsDummy (
 	StationID integer
 );
 
-\copy SellsDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Sells.csv' WITH (FORMAT CSV, HEADER);
+\copy SellsDummy FROM './data/Sells.csv' WITH (FORMAT CSV, HEADER);
 
 INSERT INTO Sells (BatchID, StationID)
 	SELECT BatchID, StationID FROM SellsDummy;
@@ -304,7 +326,7 @@ CREATE TABLE BuysDummy (
 	StationID integer
 );
 
-\copy BuysDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\Buys.csv' WITH (FORMAT CSV, HEADER);
+\copy BuysDummy FROM './data/Buys.csv' WITH (FORMAT CSV, HEADER);
 
 INSERT INTO Buys (BatchID, StationID)
 	SELECT BatchID, StationID FROM BuysDummy;
@@ -318,7 +340,7 @@ CREATE TABLE CallsAtDummy (
 	VisitOrder integer
 );
 
-\copy CallsAtDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\CallsAt.csv' WITH (FORMAT CSV, HEADER);
+\copy CallsAtDummy FROM './data/CallsAt.csv' WITH (FORMAT CSV, HEADER);
 
 INSERT INTO CallsAt (MonitoringKey, StationID, VisitOrder)
 	SELECT MonitoringKey, StationID, VisitOrder FROM CallsAtDummy;
@@ -333,12 +355,13 @@ CREATE TABLE DistanceDummy (
 	Distance real
 );
 
-\copy DistanceDummy FROM 'C:\Users\AnerdyArab\GitProjects\FSAD_Assignment2\data\PlanetDistances.csv' WITH (FORMAT CSV, HEADER);
+\copy DistanceDummy FROM './data/PlanetDistances.csv' WITH (FORMAT CSV, HEADER);
 
 INSERT INTO Distance (PlanetOrigin, PlanetDestination, AvgDistance)
 	SELECT PlanetOrigin, PlanetDestination, Distance FROM DistanceDummy;
 
 DROP TABLE DistanceDummy;
+
 /* *********************************************************
 * Exercise 4. Query the database
 * 
@@ -348,19 +371,31 @@ DROP TABLE DistanceDummy;
 
 -- 1) Add an attribute Taxes to table TradingRoute
 
+ALTER TABLE TradingRoute
+ADD COLUMN Taxes real
+
 -- 2) Set the derived attribute taxes as 12% of LastYearRevenue
 
+GENERATED ALWAYS AS (LastYearRevenue * 0.12) STORED;
 -- 3) Report the operating company and the sum of its taxes group by company.
 
-
+SELECT OperatingCompany, SUM(Taxes)
+	FROM TradingRoute
+	GROUP BY OperatingCompany;
 
 
 -- 4.2 What's the longest trading route in parsecs?
 
 -- 1) Create a dummy table RouteLength to store the trading route and their lengths.
-
+CREATE TABLE RouteLength (
+	RouteTaken varchar(40),
+	RouteLength real
+);
 -- 2) Create a view EnrichedCallsAt that brings together trading route, space stations and planets.
-
+CREATE VIEW EnrichedCallsAt AS
+	SELECT TradingRoute.MonitoringKey, Planet.PlanetName, SpaceStation.StationName
+	FROM TradingRoute, Planet, SpaceStation
+	INNER JOIN CallsAt ON SpaceStation.StationID = CallsAt.StationID;
 -- 3) Add the support to execute an anonymous code block as follows;
 
 -- 4) Within the declare section, declare a variable of type real to store a route total distance.
