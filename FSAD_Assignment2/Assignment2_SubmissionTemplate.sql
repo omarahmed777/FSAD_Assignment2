@@ -20,7 +20,7 @@
 * CREATE USER fsad PASSWORD 'fsad2022' CREATEDB;
 * GRANT pg_read_server_files TO fsad;
 */
-
+DROP DATABASE IF EXISTS smokedTrout;
 
 /* *********************************************************
 * Exercise 1. Create the Smoked Trout database
@@ -29,7 +29,6 @@
 
 -- The first time you login to execute this file with \i it may
 -- be convenient to change the working directory.
-\cd 'YOUR WORKING DIRECTORY HERE'
   -- In PostgreSQL, folders are identified with '/'
 \cd 'C:/Users/AnerdyArab/GitProjects/FSAD_Assignment2'
 
@@ -120,9 +119,6 @@ CREATE TABLE Batch (
 	ExtractionOrManufacturingDate date,
 	OriginalFrom integer,
 	PRIMARY KEY (BatchID),
-	CONSTRAINT batch_fk_productid
-		FOREIGN KEY (ProductID) REFERENCES Product(ProductID)
-		ON UPDATE CASCADE ON DELETE CASCADE NOT VALID,
 	CONSTRAINT batch_fk_originalfrom
 		FOREIGN KEY (OriginalFrom) REFERENCES Planet(PlanetID)
 		ON UPDATE CASCADE ON DELETE CASCADE NOT VALID
@@ -281,7 +277,7 @@ CREATE TABLE MadeOfDummy (
 	ProductID integer
 );
 
-\copy ManufacturedDummy FROM './data/Products_Manufactured.csv' WITH (FORMAT CSV, HEADER);
+\copy MadeOfDummy FROM './data/MadeOf.csv' WITH (FORMAT CSV, HEADER);
 
 INSERT INTO MadeOf (ManufacturedGoodID, ProductID)
 	SELECT ManufacturedGoodID, ProductID FROM MadeOfDummy;
@@ -298,9 +294,6 @@ CREATE TABLE BatchDummy (
 );
 
 \copy BatchDummy FROM './data/Batches.csv' WITH (FORMAT CSV, HEADER);
-
-ALTER TABLE Batch
-DROP CONSTRAINT batch_fk_productid;
 
 INSERT INTO Batch (BatchID, ProductID, ExtractionOrManufacturingDate, OriginalFrom)
 	SELECT BatchID, ProductID, ExtractionOrManufacturingDate, OriginalFrom FROM BatchDummy;
@@ -393,33 +386,41 @@ CREATE TABLE RouteLength (
 );
 -- 2) Create a view EnrichedCallsAt that brings together trading route, space stations and planets.
 CREATE VIEW EnrichedCallsAt AS
-	SELECT TradingRoute.MonitoringKey, Planet.PlanetName, SpaceStation.StationName
+	SELECT TradingRoute.MonitoringKey, Planet.PlanetID, Planet.PlanetName, SpaceStation.StationID
 	FROM TradingRoute, Planet, SpaceStation
 	INNER JOIN CallsAt ON SpaceStation.StationID = CallsAt.StationID;
 -- 3) Add the support to execute an anonymous code block as follows;
-
+DO
+$$
+DECLARE
 -- 4) Within the declare section, declare a variable of type real to store a route total distance.
-
+routeDistance real;
 -- 5) Within the declare section, declare a variable of type real to store a hop partial distance.
-
+hopDistance real;
 -- 6) Within the declare section, declare a variable of type record to iterate over routes.
-
+routeIterate record;
 -- 7) Within the declare section, declare a variable of type record to iterate over hops.
-
+hopIterate record;
 -- 8) Within the declare section, declare a variable of type text to transiently build dynamic queries.
-
+query text;
 -- 9) Within the main body section, loop over routes in TradingRoutes
-
+BEGIN
+FOR routeIterate IN SELECT MonitoringKey FROM TradingRoute LOOP
 -- 10) Within the loop over routes, get all visited planets (in order) by this trading route.
-
+query := 'CREATE VIEW PortsOfCall AS '
+|| 'SELECT PlanetName, VisitOrder '
+|| 'FROM EnrichedCallsAt '
+|| 'WHERE MonitoringKey = routeIterate.MonitoringKey'
+|| ' ORDER BY VisitOrder';
 -- 11) Within the loop over routes, execute the dynamic view
-
+EXECUTE query;
 -- 12) Within the loop over routes, create a view Hops for storing the hops of that route. 
-
+CREATE VIEW Hops AS
+	SELECT * FROM PortsOfCall
+	INNER JOIN PortsOfCall ON PortsOfCall.VisitOrder = PortsOfCall.VisitOrder + 1;
 -- 13) Within the loop over routes, initialize the route total distance to 0.0.
-
+routeDistance := 0.0;
 -- 14) Within the loop over routes, create an inner loop over the hops
-
 -- 15) Within the loop over hops, get the partial distances of the hop. 
 
 -- 16)  Within the loop over hops, execute the dynamic view and store the outcome INTO the hop partial distance.
@@ -433,3 +434,6 @@ CREATE VIEW EnrichedCallsAt AS
 -- 20)  Within the loop over routes, drop the view for PortsOfCall (and cascade to delete dependent objects).
 
 -- 21)  Finally, just report the longest route in the dummy table RouteLength.
+END LOOP;
+END;
+$$;
