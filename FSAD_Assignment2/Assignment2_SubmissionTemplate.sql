@@ -381,59 +381,69 @@ SELECT OperatingCompany, SUM(Taxes)
 
 -- 1) Create a dummy table RouteLength to store the trading route and their lengths.
 CREATE TABLE RouteLength (
-	RouteTaken varchar(40),
-	RouteLength real
+	RouteMonitoringKey integer,
+	RouteTotalDistance real
 );
 -- 2) Create a view EnrichedCallsAt that brings together trading route, space stations and planets.
 CREATE VIEW EnrichedCallsAt AS
-	SELECT TradingRoute.MonitoringKey, Planet.PlanetID, Planet.PlanetName, SpaceStation.StationID
-	FROM TradingRoute, Planet, SpaceStation
-	INNER JOIN CallsAt ON SpaceStation.StationID = CallsAt.StationID;
+	SELECT TradingRoute.MonitoringKey, Planet.PlanetID, Planet.PlanetName, CallsAt.StationID, CallsAt.VisitOrder
+	FROM TradingRoute, Planet, CallsAt
+	INNER JOIN SpaceStation ON CallsAt.StationID = SpaceStation.StationID; 
 -- 3) Add the support to execute an anonymous code block as follows;
 DO
 $$
 DECLARE
 -- 4) Within the declare section, declare a variable of type real to store a route total distance.
-routeDistance real;
+routeDistance real; -- Trade route total distance --
 -- 5) Within the declare section, declare a variable of type real to store a hop partial distance.
-hopDistance real;
+hopDistance real := 0.0; -- hop partial distance --
 -- 6) Within the declare section, declare a variable of type record to iterate over routes.
-routeIterate record;
+routeIterate record; -- record of routes --
 -- 7) Within the declare section, declare a variable of type record to iterate over hops.
-hopIterate record;
+hopIterate record; -- record of hops --
 -- 8) Within the declare section, declare a variable of type text to transiently build dynamic queries.
-query text;
+query text; -- dynamic query builder --
 -- 9) Within the main body section, loop over routes in TradingRoutes
 BEGIN
 FOR routeIterate IN SELECT MonitoringKey FROM TradingRoute LOOP
 -- 10) Within the loop over routes, get all visited planets (in order) by this trading route.
-query := 'CREATE VIEW PortsOfCall AS '
+query := 'CREATE OR REPLACE VIEW PortsOfCall AS '
 || 'SELECT PlanetName, VisitOrder '
 || 'FROM EnrichedCallsAt '
-|| 'WHERE MonitoringKey = routeIterate.MonitoringKey'
+|| 'WHERE MonitoringKey = ' || routeIterate.MonitoringKey
 || ' ORDER BY VisitOrder';
 -- 11) Within the loop over routes, execute the dynamic view
 EXECUTE query;
 -- 12) Within the loop over routes, create a view Hops for storing the hops of that route. 
-CREATE VIEW Hops AS
-	SELECT * FROM PortsOfCall
-	INNER JOIN PortsOfCall ON PortsOfCall.VisitOrder = PortsOfCall.VisitOrder + 1;
+CREATE OR REPLACE VIEW Hops AS
+	SELECT * FROM Distance
+	INNER JOIN PortsOfCall ON PortsOfCall.VisitOrder = (PortsOfCall.VisitOrder + 1);
+
 -- 13) Within the loop over routes, initialize the route total distance to 0.0.
 routeDistance := 0.0;
 -- 14) Within the loop over routes, create an inner loop over the hops
+FOR hopIterate IN SELECT PlanetOrigin FROM Distance LOOP
 -- 15) Within the loop over hops, get the partial distances of the hop. 
-
+query := 'SELECT AvgDistance '
+|| 'FROM Hops '
+|| 'WHERE PlanetOrigin != PlanetDestination';
 -- 16)  Within the loop over hops, execute the dynamic view and store the outcome INTO the hop partial distance.
-
+EXECUTE query INTO hopDistance;
 -- 17)  Within the loop over hops, accumulate the hop partial distance to the route total distance.
-
+hopDistance := hopDistance + routeDistance;
 -- 18)  Go back to the routes loop and insert into the dummy table RouteLength the pair (RouteMonitoringKey,RouteTotalDistance).
-
+END LOOP;
+INSERT INTO RouteLength (RouteMonitoringKey, RouteTotalDistance)
+VALUES (routeIterate.MonitoringKey, routeDistance);
 -- 19)  Within the loop over routes, drop the view for Hops (and cascade to delete dependent objects).
-
+--DROP VIEW Hops CASCADE;
 -- 20)  Within the loop over routes, drop the view for PortsOfCall (and cascade to delete dependent objects).
-
+--DROP VIEW PortsOfCall CASCADE;
 -- 21)  Finally, just report the longest route in the dummy table RouteLength.
 END LOOP;
 END;
 $$;
+SELECT RouteMonitoringKey, RouteTotalDistance
+	FROM RouteLength
+	WHERE RouteTotalDistance = (SELECT MAX(RouteTotalDistance) FROM RouteLength)
+	GROUP BY RouteMonitoringKey, RouteTotalDistance;
