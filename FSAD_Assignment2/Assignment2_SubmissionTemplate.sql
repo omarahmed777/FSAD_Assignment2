@@ -98,8 +98,8 @@ CREATE TABLE Product (
 );
 -- 7) Create the child table RawMaterial with the corresponding attributes.
 CREATE TABLE RawMaterial (
-	FundamentalOrComposite varchar(3),
-	State varchar(6)
+	FundamentalOrComposite materialComposition,
+	State materialState
 ) INHERITS (Product);
 
 -- 8) Create the child table ManufacturedGood. 
@@ -241,16 +241,35 @@ DROP TABLE StationDummy;
 CREATE TABLE RawDummy (
 	ProductID SERIAL,
 	Product varchar(30),
-	Composite varchar(3),
+	Composite varchar(20),
 	VolumePerTon real,
 	ValuePerTon real,
-	State varchar(6)
+	State varchar(10)
 );
 
 \copy RawDummy from './data/Products_Raw.csv' WITH (FORMAT CSV, HEADER);
 
+--Update table to use the ENUM materialComposition
+UPDATE RawDummy
+	SET Composite =
+	CASE
+		WHEN Composite = 'Yes' THEN materialComposition('Composite')
+		WHEN Composite = 'No' THEN materialComposition('Fundamental')
+	END;
+
+--Update table to use the ENUM materialState
+UPDATE RawDummy
+	SET State =
+	CASE
+		WHEN State = 'Solid' THEN materialState('Solid')
+		WHEN State = 'Liquid' THEN materialState('Liquid')
+		WHEN State = 'Gas' THEN materialState('Gas')
+		WHEN State = 'Plasma' THEN materialState('Plasma')
+	END;
+
+--Cast varchar to ENUM in the insert
 INSERT INTO RawMaterial (ProductID, ProductName, VolumePerTon, ValuePerTon, FundamentalOrComposite, State)
-	SELECT ProductID, Product, VolumePerTon, ValuePerTon, Composite, State FROM RawDummy;
+	SELECT ProductID, Product, VolumePerTon, ValuePerTon, Composite::materialComposition, State::materialState FROM RawDummy;
 
 DROP TABLE RawDummy;
 
@@ -361,15 +380,13 @@ DROP TABLE DistanceDummy;
 ************************************************************ */
 
 -- 4.1 Report last year taxes per company
-
 -- 1) Add an attribute Taxes to table TradingRoute
 
 ALTER TABLE TradingRoute
 ADD COLUMN Taxes real
-
 -- 2) Set the derived attribute taxes as 12% of LastYearRevenue
-
 GENERATED ALWAYS AS (LastYearRevenue * 0.12) STORED;
+
 -- 3) Report the operating company and the sum of its taxes group by company.
 
 SELECT OperatingCompany, SUM(Taxes)
@@ -378,7 +395,6 @@ SELECT OperatingCompany, SUM(Taxes)
 
 
 -- 4.2 What's the longest trading route in parsecs?
-
 -- 1) Create a dummy table RouteLength to store the trading route and their lengths.
 CREATE TABLE RouteLength (
 	RouteMonitoringKey integer,
@@ -416,8 +432,8 @@ query := 'CREATE OR REPLACE VIEW PortsOfCall AS '
 EXECUTE query;
 -- 12) Within the loop over routes, create a view Hops for storing the hops of that route. 
 CREATE OR REPLACE VIEW Hops AS
-	SELECT * FROM Distance
-	INNER JOIN PortsOfCall ON PortsOfCall.VisitOrder = (PortsOfCall.VisitOrder + 1);
+	SELECT AvgDistance FROM Distance
+	INNER JOIN PortsOfCall ON PortsOfCall.VisitOrder = PortsOfCall.VisitOrder + 1;
 
 -- 13) Within the loop over routes, initialize the route total distance to 0.0.
 routeDistance := 0.0;
@@ -425,8 +441,7 @@ routeDistance := 0.0;
 FOR hopIterate IN SELECT PlanetOrigin FROM Distance LOOP
 -- 15) Within the loop over hops, get the partial distances of the hop. 
 query := 'SELECT AvgDistance '
-|| 'FROM Hops '
-|| 'WHERE PlanetOrigin != PlanetDestination';
+|| 'FROM Hops';
 -- 16)  Within the loop over hops, execute the dynamic view and store the outcome INTO the hop partial distance.
 EXECUTE query INTO hopDistance;
 -- 17)  Within the loop over hops, accumulate the hop partial distance to the route total distance.
